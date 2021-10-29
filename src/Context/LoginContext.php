@@ -10,6 +10,7 @@ use SilverStripe\Security\Group;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\Permission;
 use SilverStripe\Security\Security;
+use SilverStripe\MFA\Model\RegisteredMethod;
 
 /**
  * LoginContext
@@ -81,6 +82,70 @@ class LoginContext implements Context
      * @param string $password
      */
     public function stepILogInWith($email, $password)
+    {
+        $this->loginWith($email, $password);
+
+        // Check if MFA module is installed
+        if (!class_exists(RegisteredMethod::class)) {
+            return;
+        }
+
+        // Skip MFA registration if MFA module installed
+        $this->getMainContext()->getSession()->wait(100);
+        $page = $this->getMainContext()->getSession()->getPage();
+        $mfa = $this->waitForElement('#mfa-app');
+        if (!$mfa) {
+            return;
+        }
+        $clicked = false;
+        $cssLocator = '.mfa-action-list__item .btn';
+        $this->waitForElement($cssLocator);
+        foreach ($page->findAll('css', $cssLocator) as $btn) {
+            if ($btn->getText() !== 'Setup later') {
+                continue;
+            }
+            // There's been issues clicking the button, so try waiting for a little bit
+            sleep(0.3);
+            $btn->click();
+            $clicked = true;
+            break;
+        }
+        assertTrue($clicked, 'MFA "Setup later" button was not found so it was not clicked');
+    }
+
+    /**
+     * @param string $cssLocator
+     * @return NodeElement|null
+     */
+    private function waitForElement($cssLocator)
+    {
+        $page = $this->getMainContext()->getSession()->getPage();
+        $el = null;
+        for ($i = 0; $i < 50; $i++) {
+            $el = $page->find('css', $cssLocator);
+            if ($el) {
+                break;
+            }
+            $this->getMainContext()->getSession()->wait(100);
+        }
+        return $el;
+    }
+
+    /**
+     * @When /^I log in with "([^"]*)" and "([^"]*)" without skipping MFA$/
+     * @param string $email
+     * @param string $password
+     */
+    public function stepILogInWithWithoutSkippingMfa($email, $password)
+    {
+        $this->loginWith($email, $password);
+    }
+
+    /**
+     * @param string $email
+     * @param string $password
+     */
+    private function loginWith($email, $password)
     {
         $c = $this->getMainContext();
         $loginUrl = $c->joinUrlParts($c->getBaseUrl(), $c->getLoginUrl());

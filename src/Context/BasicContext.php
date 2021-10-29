@@ -2,25 +2,29 @@
 
 namespace SilverStripe\BehatExtension\Context;
 
+use Exception;
+use InvalidArgumentException;
 use Behat\Behat\Context\Context;
+use Behat\Behat\Context\Environment\InitializedContextEnvironment;
 use Behat\Behat\Definition\Call;
 use Behat\Behat\Hook\Scope\AfterScenarioScope;
 use Behat\Behat\Hook\Scope\AfterStepScope;
+use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Behat\Hook\Scope\BeforeStepScope;
-use Behat\Behat\Hook\Scope\StepScope;
 use Behat\Mink\Element\NodeElement;
+use Behat\Mink\Exception\ElementNotFoundException;
 use Behat\Mink\Session;
 use Behat\Testwork\Tester\Result\TestResult;
-use Exception;
 use Facebook\WebDriver\Exception\WebDriverException;
 use Facebook\WebDriver\WebDriver;
 use Facebook\WebDriver\WebDriverAlert;
 use Facebook\WebDriver\WebDriverExpectedCondition;
-use InvalidArgumentException;
+use Facebook\WebDriver\WebDriverKeys;
 use PHPUnit\Framework\Assert;
 use SilverStripe\Assets\File;
 use SilverStripe\Assets\Filesystem;
 use SilverStripe\BehatExtension\Utility\StepHelper;
+use SilverStripe\BehatExtension\Utility\DebugTools;
 use SilverStripe\MinkFacebookWebDriver\FacebookWebDriver;
 
 /**
@@ -35,6 +39,7 @@ class BasicContext implements Context
 {
     use MainContextAwareTrait;
     use StepHelper;
+    use DebugTools;
 
     /**
      * Date format in date() syntax
@@ -54,6 +59,50 @@ class BasicContext implements Context
      * @var String
      */
     protected $datetimeFormat = 'Y-m-d H:i:s';
+
+    /**
+     * @var FixtureContext
+     */
+    protected $fixtureContext = null;
+
+    /**
+     * Get the fixture context of the current module
+     *
+     * @BeforeScenario
+     */
+    public function gatherContexts(BeforeScenarioScope $scope): void
+    {
+        /** @var InitializedContextEnvironment $environment */
+        $environment = $scope->getEnvironment();
+
+        // Find the FixtureContext defined in behat.yml
+        $subClasses = $this->getSubclassesOf(FixtureContext::class);
+        foreach ($subClasses as $class) {
+            if (!$environment->hasContextClass($class)) {
+                continue;
+            }
+            $this->fixtureContext = $environment->getContext($class);
+            break;
+        }
+        // Fallback to base FixtureClass
+        if (!$this->fixtureContext && $environment->hasContextClass(FixtureContext::class)) {
+            $this->fixtureContext = $environment->getContext(FixtureContext::class);
+        }
+    }
+
+    /**
+     * Gets the subclasses of a class
+     */
+    private function getSubclassesOf($parent): array
+    {
+        $result = [];
+        foreach (get_declared_classes() as $class) {
+            if (is_subclass_of($class, $parent)) {
+                $result[] = $class;
+            }
+        }
+        return $result;
+    }
 
     /**
      * Get Mink session from MinkContext
@@ -129,7 +178,7 @@ JS;
             $jserrors = $page->find('xpath', '//body[@data-jserrors]');
             if (null !== $jserrors) {
                 $this->takeScreenshot($event);
-                file_put_contents('php://stderr', $jserrors->getAttribute('data-jserrors') . PHP_EOL);
+                $this->logMessage($jserrors->getAttribute('data-jserrors'));
             }
 
             $javascript = <<<JS
@@ -251,26 +300,6 @@ JS;
     }
 
     /**
-     * Take screenshot when step fails.
-     * Works only with FacebookWebDriver.
-     *
-     * @AfterStep
-     * @param AfterStepScope $event
-     */
-    public function takeScreenshotAfterFailedStep(AfterStepScope $event)
-    {
-        // Check failure code
-        if ($event->getTestResult()->getResultCode() !== TestResult::FAILED) {
-            return;
-        }
-        try {
-            $this->takeScreenshot($event);
-        } catch (WebDriverException $e) {
-            $this->logException($e);
-        }
-    }
-
-    /**
      * Close modal dialog if test scenario fails on CMS page
      *
      * @AfterScenario
@@ -314,54 +343,6 @@ JS;
     }
 
     /**
-     * Take a nice screenshot
-     *
-     * @param StepScope $event
-     */
-    public function takeScreenshot(StepScope $event)
-    {
-        // Validate driver
-        $driver = $this->getSession()->getDriver();
-        if (!($driver instanceof FacebookWebDriver)) {
-            file_put_contents('php://stdout', 'ScreenShots are only supported for FacebookWebDriver: skipping');
-            return;
-        }
-
-        $feature = $event->getFeature();
-        $step = $event->getStep();
-        $screenshotPath = null;
-
-        // Check paths are configured
-        $path = $this->getMainContext()->getScreenshotPath();
-        if (!$path) {
-            file_put_contents('php://stdout', 'ScreenShots path not configured: skipping');
-            return;
-        }
-
-        Filesystem::makeFolder($path);
-        $path = realpath($path);
-
-        if (!file_exists($path)) {
-            file_put_contents('php://stderr', sprintf('"%s" is not valid directory and failed to create it' . PHP_EOL, $path));
-            return;
-        }
-
-        if (file_exists($path) && !is_dir($path)) {
-            file_put_contents('php://stderr', sprintf('"%s" is not valid directory' . PHP_EOL, $path));
-            return;
-        }
-        if (file_exists($path) && !is_writable($path)) {
-            file_put_contents('php://stderr', sprintf('"%s" directory is not writable' . PHP_EOL, $path));
-            return;
-        }
-
-        $path = sprintf('%s/%s_%d.png', $path, basename($feature->getFile()), $step->getLine());
-        $screenshot = $driver->getScreenshot();
-        file_put_contents($path, $screenshot);
-        file_put_contents('php://stderr', sprintf('Saving screenshot into %s' . PHP_EOL, $path));
-    }
-
-    /**
      * @Given /^the page can't be found/
      */
     public function stepPageCantBeFound()
@@ -370,8 +351,8 @@ JS;
         Assert::assertTrue(
             // Content from ErrorPage default record
             $page->hasContent('Page not found')
-            // Generic ModelAsController message
-            || $page->hasContent('The requested page could not be found')
+                // Generic ModelAsController message
+                || $page->hasContent('The requested page could not be found')
         );
     }
 
@@ -382,7 +363,7 @@ JS;
      */
     public function stepIWaitFor($secs)
     {
-        $this->getSession()->wait((float)$secs*1000);
+        $this->getSession()->wait((float)$secs * 1000);
     }
 
     /**
@@ -631,7 +612,7 @@ JS;
     protected function getWebDriverSession()
     {
         $driver = $this->getSession()->getDriver();
-        if (! $driver instanceof FacebookWebDriver) {
+        if (!$driver instanceof FacebookWebDriver) {
             throw new InvalidArgumentException("Only supported for FacebookWebDriver");
         }
         return $driver->getWebDriver();
@@ -642,6 +623,8 @@ JS;
      * @param string $field
      * @param string $path
      * @return Call\Given
+     *
+     * @deprecated 4.5..5.0 - use iAttachTheFileToTheField() instead
      */
     public function iAttachTheFileTo($field, $path)
     {
@@ -925,7 +908,6 @@ JS;
         $regionObj->fillField($field, $value);
     }
 
-
     /**
      * Asserts text in a specific region (an element identified by a CSS selector, a "data-title" attribute,
      * or a named region mapped to a CSS selector via Behat configuration).
@@ -948,7 +930,7 @@ JS;
 
         $actual = $regionObj->getText();
         $actual = preg_replace('/\s+/u', ' ', $actual);
-        $regex  = '/'.preg_quote($text, '/').'/ui';
+        $regex  = '/' . preg_quote($text, '/') . '/ui';
 
         if (trim($negate)) {
             if (preg_match($regex, $actual)) {
@@ -1281,6 +1263,16 @@ JS;
         ));
     }
 
+
+    /**
+     * Log a message
+     */
+    protected function logMessage(string $message)
+    {
+        file_put_contents('php://stderr', $message . PHP_EOL);
+    }
+
+
     /**
      * We have to catch exceptions and log somehow else otherwise behat falls over
      *
@@ -1288,7 +1280,7 @@ JS;
      */
     protected function logException(Exception $exception)
     {
-        file_put_contents('php://stderr', 'Exception caught: ' . $exception->getMessage());
+        $this->logMessage('Exception caught: ' . $exception->getMessage());
     }
 
     /**
@@ -1296,32 +1288,248 @@ JS;
      * There's already an xpath based function 'I see the "" element' iSeeTheElement() in silverstripe/cms
      * There's also an 'I should see "" element' in MinkContext which also converts the css selector to xpath
      *
-     * @When /^I should see the "([^"]+)" element/
+     * @When /^I should(| not) see the "([^"]+)" element/
      * @param $selector
      */
-    public function iShouldSeeTheElement($selector)
+    public function iShouldSeeTheElement($not, $cssSelector = '')
     {
-        $sel = str_replace('"', '\\"', $selector);
+        // backwards compatibility for when function signature was just ($cssSelector)
+        if (!in_array($not, ['', ' not'])) {
+            $not = '';
+            $cssSelector = $not;
+        }
+        $sel = str_replace('"', '\\"', $cssSelector);
         $js = <<<JS
 return document.querySelector("$sel");
 JS;
         $element = $this->getSession()->evaluateScript($js);
-        Assert::assertNotNull($element, sprintf('Element %s not found', $selector));
+        if ($not) {
+            Assert::assertNull($element, sprintf('Element %s was found when it should not have been', $cssSelector));
+        } else {
+            Assert::assertNotNull($element, sprintf('Element %s not found', $cssSelector));
+        }
     }
 
     /**
-     * Selects the option in select field with specified id|name|label|value.
-     * Note: this is duplicate code from SilverStripeContext selectOption
-     * In practice, the primary context file using in modules have inherited from BasicContext
-     * and not SilverStripeContext so the selectOption method is not available.
+     * Selects the option in select field with specified id|name|label|value
+     * Also accepts CSS selectors
      *
-     * @When /^I select "([^"]+)" from the "([^"]+)" field$/
+     * @When /^I select "([^"]+)" from the "([^"]+)" field(| with javascript)$/
      * @param string $value
-     * @param string $locator - select id, name or label - NOT a css selector
+     * @param string $locator - select id, name, label or element
+     * @param string $withJavascript - use javascript if having trouble selecting an option e.g. visibility
      */
-    public function iSelectFromTheField($value, $locator)
+    public function iSelectFromTheField($value, $locator, $withJavascript)
     {
-        $val = str_replace('"', '\\"', $value);
-        $this->getSession()->getPage()->selectFieldOption($locator, $val);
+        $field = $this->getElement($locator);
+        if (!$withJavascript) {
+            $field->selectOption($value);
+        } else {
+            $xpath = $field->getXpath();
+            $xpath = str_replace(['"', "\n"], ['\"', ''], $xpath);
+            $value = str_replace('"', '\"', $value);
+            $js = <<<JS
+                return (function() {
+                    let select = document.evaluate("{$xpath}", document).iterateNext();
+                    let options = select.getElementsByTagName('option');
+                    for (let i = 0; i < options.length; i++) {
+                        let option = options[i];
+                        if (option.value != "{$value}" && option.innerHTML.trim() != "{$value}") {
+                            continue;
+                        }
+                        select.value = option.value;
+                        return 1;
+                    }
+                    return 0;
+                })();
+JS;
+            $result = $this->getSession()->evaluateScript($js);
+            Assert::assertEquals(1, $result, "Unable to select value {$value} from {$locator} with javascript");
+        }
+    }
+
+    /**
+     * @Then /^the rendered HTML should(| not) contain "(.+)"$/
+     * @param string $not
+     * @param string $htmlFragment
+     */
+    public function theRenderedHtmlShouldContain($not, $htmlFragment)
+    {
+        $html = $this->getSession()->getPage()->getOuterHtml();
+        $htmlFragment = str_replace('\"', '"', $htmlFragment);
+        $contains = strpos($html, $htmlFragment) !== false;
+        if ($not) {
+            Assert::assertFalse($contains, "HTML fragment {$htmlFragment} was in rendered HTML when it should not have been");
+        } else {
+            Assert::assertTrue($contains, "HTML fragment {$htmlFragment} not found in rendered HTML");
+        }
+    }
+
+    /**
+     * Add tag values to the react TagField component which uses react-select
+     *
+     * @Then /^I add "([^"]+)" to the "([^"]+)" tag field$/
+     * @param string $value
+     * @param string $locator
+     */
+    public function iAddToTheTagField($value, $locator)
+    {
+        $tagFieldInput = $this->getElement($locator);
+        $tagFieldInput->setValue($value);
+        $tagFieldInput->getParent()->getParent()->getParent()->getParent()->find('css', '.Select-menu-outer')->click();
+    }
+
+    /**
+     * @Then /^the "([^"]+)" field should have the value "([^"]+)"$/
+     * @param string $locator
+     * @param string $value
+     */
+    public function theFieldShouldHaveTheValue($locator, $value)
+    {
+        Assert::assertEquals($value, $this->getElement($locator)->getValue());
+    }
+
+    /**
+     * Will first attempt to find a field based on $locator
+     * Will fall back to finding an element based on css selector
+     *
+     * @param string $locator
+     * @return null|NodeElement
+     */
+    private function getElement($locator): ?NodeElement
+    {
+        $page = $this->getSession()->getPage();
+        try {
+            $element = $page->findField($locator);
+        } catch (ElementNotFoundException $e) {
+            // noop
+        }
+        if (!$element) {
+            $element = $page->find('css', $locator);
+        }
+        Assert::assertNotNull($element, "Field {$locator} was not found");
+        return $element;
+    }
+
+    /**
+     * @When /^I drag the "([^"]+)" element to the "([^"]+)" element$/
+     * @param string $locatorA
+     * @param string $locatorB
+     */
+    public function iDragTheElementToTheElement($locatorA, $locatorB)
+    {
+        $elementA = $this->getElement($locatorA);
+        $elementB = $this->getElement($locatorB);
+        $elementA->dragTo($elementB);
+    }
+
+    /**
+     * This doesn't seem to work quite right in practice
+     * iDragTheElementToTheElement is much more reliable
+     *
+     * @When /^I drag the "([^"]+)" element by "(\-?[0-9]+),(\-?[0-9]+)"$/
+     * @param string $locatorA
+     * @param string $xOffset
+     * @param string $yOffset
+     */
+    public function iDragTheElementBy($locatorA, $xOffset, $yOffset)
+    {
+        /** @var FacebookWebDrvier $driver */
+        $driver = $this->getSession()->getDriver();
+        if (!($driver instanceof FacebookWebDriver)) {
+            $this->logMessage('Drag and drop by offset is only supported for FacebookWebDriver: skipping');
+            return;
+        }
+        $elementA = $this->getElement($locatorA);
+        $driver->dragBy($elementA->getXpath(), (int) $xOffset, (int) $yOffset);
+    }
+
+    /**
+     * Globally press the key i.e. not type into an input
+     *
+     * @When /^I press the "([^"]+)" key globally$/
+     * @param string $keyCombo - e.g. tab / shift-tab / ctrl-c / alt-f4
+     */
+    public function iPressTheKeyGlobally($keyCombo)
+    {
+        /** @var FacebookWebDrvier $driver */
+        $driver = $this->getSession()->getDriver();
+        if (!($driver instanceof FacebookWebDriver)) {
+            $this->logMessage('Pressing keys globally is only supported for FacebookWebDriver: skipping');
+            return;
+        }
+        $modifier = null;
+        $pos = strpos($keyCombo, '-');
+        if ($pos !== false && $pos !== 0) {
+            list($modifier, $char) = explode('-', $keyCombo);
+        } else {
+            $char = $keyCombo;
+        }
+        // handle special chars e.g. "space"
+        if (defined(WebDriverKeys::class . '::' . strtoupper($char))) {
+            $char = constant(WebDriverKeys::class . '::' . strtoupper($char));
+        }
+        if ($modifier) {
+            $modifier = strtoupper($modifier);
+            if (defined(WebDriverKeys::class . '::' . $modifier)) {
+                $modifier = constant(WebDriverKeys::class . '::' . $modifier);
+            } else {
+                $modifier = null;
+            }
+        }
+        $driver->globalKeyPress($char, $modifier);
+    }
+
+    /**
+     * Use upload fields
+     *
+     * @Then /^I attach the file "([^"]+)" to the "([^"]+)" field$/
+     * @param $filename
+     * @param $locator
+     */
+    public function iAttachTheFileToTheField($filename, $locator)
+    {
+        Assert::assertNotNull($this->fixtureContext, 'FixtureContext was not found so cannot know location of fixture files');
+        $path = $this->fixtureContext->getFilesPath() . '/' . $filename;
+        $path = str_replace('//', '/', $path);
+        Assert::assertNotEmpty($path, 'Fixture files path is empty');
+        $field = $this->getElement($locator);
+        $filesPath = $this->fixtureContext->getFilesPath();
+        if ($filesPath) {
+            $fullPath = rtrim(realpath($filesPath), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $path;
+            if (is_file($fullPath)) {
+                $path = $fullPath;
+            }
+        }
+        Assert::assertFileExists($path, "{$path} does not exist");
+        $field->attachFile($path);
+    }
+
+    /**
+     * Use this to follow hyperlinks with target="_blank"
+     * Behat won't switch to the new tab
+     * Also allows use of css selectors
+     *
+     * @When /^I follow "([^"]+)" with javascript$/
+     * @param string $locator
+     */
+    public function iFollowWithJavascript($locator)
+    {
+        $page = $this->getSession()->getPage();
+        $link = $page->find('named', ['link', $locator]);
+        if (!$link) {
+            $link = $page->find('css', $locator);
+        }
+        Assert::assertNotNull($link, "Link {$locator} was not found");
+        $html = $link->getOuterHtml();
+        preg_match('#href=([\'"])#', $html, $m);
+        $q = $m[1];
+        preg_match("#href={$q}(.+?){$q}#", $html, $m);
+        $href = str_replace("'", "\\'", $m[1]);
+        if (strpos($href, 'http') !== 0) {
+            $href = rtrim($href, '/');
+            $href = "/{$href}";
+        }
+        $this->getSession()->executeScript("document.location.href = '{$href}';");
     }
 }
