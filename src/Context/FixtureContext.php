@@ -16,8 +16,10 @@ use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Extensible;
 use SilverStripe\Core\Extension;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Core\Manifest\Module;
 use SilverStripe\Core\Manifest\ModuleLoader;
 use SilverStripe\Core\Manifest\ModuleManifest;
+use SilverStripe\Core\Path;
 use SilverStripe\Dev\BehatFixtureFactory;
 use SilverStripe\Dev\FixtureBlueprint;
 use SilverStripe\Dev\FixtureFactory;
@@ -30,6 +32,7 @@ use SilverStripe\Security\Group;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\Permission;
 use SilverStripe\Versioned\Versioned;
+use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * Context used to create fixtures in the SilverStripe ORM.
@@ -68,6 +71,11 @@ class FixtureContext implements Context
      * @var string[] Tracks any config files that have been activated as part of a scenario
      */
     protected $activatedConfigFiles = array();
+
+    /**
+     * @var string[] Tracks all template files and folders created from fixtures, for later cleanup.
+     */
+    protected $createdTemplatePaths = array();
 
     /**
      * @var array Stores the asset tuples.
@@ -688,6 +696,42 @@ YAML;
     }
 
     /**
+     * Get the module that represents the application.
+     */
+    protected function getAppModule(): Module
+    {
+        $project = ModuleManifest::config()->get('project') ?: 'mysite';
+        $mysite = ModuleLoader::getModule($project);
+        Assert::assertNotNull($mysite, 'Project exists');
+        return $mysite;
+    }
+
+    /**
+     * Get the main folder for the application.
+     */
+    protected function getDestinationTemplatePath(string $filename, bool $createMissingDirs): string
+    {
+        $app = $this->getAppModule();
+        $basePath = $app->getPath();
+        $destPath = $app->getResource("templates/{$filename}")->getPath();
+        Assert::assertFileDoesNotExist($destPath, "Template file {$filename} hasn't aleady been loaded");
+
+        if ($createMissingDirs) {
+            $maybeMissingdirs = explode('/', str_replace($basePath, '', dirname($destPath)));
+            foreach ($maybeMissingdirs as $dir) {
+                $dir = Path::join($basePath, $dir);
+                if (!is_dir($dir)) {
+                    mkdir($dir);
+                    $this->createdTemplatePaths[] = $dir;
+                }
+                $basePath = $dir;
+            }
+        }
+
+        return $destPath;
+    }
+
+    /**
      * Get the destination folder for config and assert the given file name doesn't exist within in.
      *
      * @param $filename
@@ -695,10 +739,7 @@ YAML;
      */
     protected function getDestinationConfigFolder($filename)
     {
-        $project = ModuleManifest::config()->get('project') ?: 'mysite';
-        $mysite = ModuleLoader::getModule($project);
-        Assert::assertNotNull($mysite, 'Project exists');
-        $destPath = $mysite->getResource("_config/{$filename}")->getPath();
+        $destPath = $this->getAppModule()->getResource("_config/{$filename}")->getPath();
         Assert::assertFileDoesNotExist($destPath, "Config file {$filename} hasn't aleady been loaded");
         return $destPath;
     }
@@ -793,6 +834,7 @@ YAML;
     public function afterResetConfig(AfterScenarioScope $event)
     {
         $this->clearConfigFiles();
+        $this->clearTemplateFiles();
         // Flush
         $this->getMainContext()->visit('/?flush');
     }
@@ -966,11 +1008,29 @@ YAML;
         $this->activatedConfigFiles = [];
     }
 
+    protected function clearTemplateFiles(): void
+    {
+        // No files to cleanup
+        if (empty($this->createdTemplatePaths)) {
+            return;
+        }
+
+        $fs = new Filesystem();
+        foreach ($this->createdTemplatePaths as $file) {
+            if ($fs->exists($file)) {
+                $fs->remove($file);
+            }
+        }
+
+        $this->createdTemplatePaths = [];
+    }
+
     /**
      * Catch situations where failed scenarios and early exiting would prevent cleanup.
      */
     public function __destruct()
     {
         $this->clearConfigFiles();
+        $this->clearTemplateFiles();
     }
 }
