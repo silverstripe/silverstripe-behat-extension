@@ -973,4 +973,29 @@ YAML;
     {
         $this->clearConfigFiles();
     }
+    
+    /**
+     * Example: Given the maximum 5 items per page
+     *
+     * @Given /^the maximum "([^"]+)" items per page$/
+     * @param string $items Max items per page
+     */
+    public function stepCreateMaximumItemsPerPageStep($items): void
+    {
+        $config = <<<YAML
+        ---
+        name: default-items-per-page
+        ---
+
+        SilverStripe\Admin\ModelAdmin:
+            page_length: $items
+        YAML;
+
+        $file = 'default-items-per-page.yml';
+        $path = $this->getDestinationConfigFolder($file);
+        file_put_contents($path, $config);
+
+        $this->activatedConfigFiles[] = $path;
+        $this->getMainContext()->visit('dev/build?flush');
+    }
 }
