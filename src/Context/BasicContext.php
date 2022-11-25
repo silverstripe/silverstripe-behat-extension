@@ -2,7 +2,6 @@
 
 namespace SilverStripe\BehatExtension\Context;
 
-use SilverStripe\Dev\Deprecation;
 use Exception;
 use InvalidArgumentException;
 use Behat\Behat\Context\Context;
@@ -617,31 +616,6 @@ JS;
             throw new InvalidArgumentException("Only supported for FacebookWebDriver");
         }
         return $driver->getWebDriver();
-    }
-
-    /**
-     * @Given /^(?:|I )attach the file "(?P<path>[^"]*)" to "(?P<field>(?:[^"]|\\")*)" with HTML5$/
-     * @param string $field
-     * @param string $path
-     * @return Call\Given
-     *
-     * @deprecated 4.5.0 Use iAttachTheFileToTheField() instead
-     */
-    public function iAttachTheFileTo($field, $path)
-    {
-        Deprecation::notice('4.5.0', 'Use iAttachTheFileToTheField() instead');
-        // Remove wrapped button styling to make input field accessible to Selenium
-        $js = <<<JS
-let input = jQuery('[name="$field"]');
-if(input.closest('.ss-uploadfield-item-info').length) {
-    while(!input.parent().is('.ss-uploadfield-item-info')) input = input.unwrap();
-}
-JS;
-
-        $this->getSession()->executeScript($js);
-        $this->getSession()->wait(1000);
-
-        return $this->getMainContext()->attachFileToField($field, $path);
     }
 
     /**

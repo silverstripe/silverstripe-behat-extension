@@ -544,9 +544,7 @@ It's based on the `vendor/bin/behat -di @cms` output.
 	 Then /^the "(?P<checkbox>(?:[^"]|\\")*)" checkbox should not be checked$/
 	    - Checks, that checkbox with specified in|name|label|value is unchecked.
 
-	Given /^(?:|I )attach the file "(?P[^"]*)" to "(?P<field>(?:[^"]|\\")*)" with HTML5$/
-
-	When /^I fill in the "(?P<field>([^"]*))" HTML field with "(?P<value>([^"]*))"$/
+	 When /^I fill in the "(?P<field>([^"]*))" HTML field with "(?P<value>([^"]*))"$/
 
 	 When /^I fill in "(?P<value>([^"]*))" for the "(?P<field>([^"]*))" HTML field$/
 
@@ -603,8 +601,6 @@ It's based on the `vendor/bin/behat -di @cms` output.
 	 Then /^I should see an edit page form$/
 
 	 Then /^I should see the CMS$/
-
-	 Then /^I should see a "([^"]*)" notice$/
 
 	 Then /^I should see a "([^"]*)" message$/
 
