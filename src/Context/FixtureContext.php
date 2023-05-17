@@ -70,6 +70,11 @@ class FixtureContext implements Context
     protected $activatedConfigFiles = array();
 
     /**
+     * @var string[][] Tracks any extensions that have been added to classes
+     */
+    protected $addedExtensions = array();
+
+    /**
      * @var array Stores the asset tuples.
      */
     protected $createdAssets = array();
@@ -660,6 +665,10 @@ class FixtureContext implements Context
         /** @var Extensible $targetClass */
         $targetClass = $this->convertTypeToClass($class);
         $targetClass::add_extension($extension);
+        if (!array_key_exists($targetClass, $this->addedExtensions)) {
+            $this->addedExtensions[$targetClass] = [];
+        }
+        $this->addedExtensions[$targetClass][] = $extension;
 
         // Write config for this extension too...
         $snakedExtension = strtolower(str_replace('\\', '-', $extension ?? '') ?? '');
@@ -793,6 +802,7 @@ YAML;
     public function afterResetConfig(AfterScenarioScope $event)
     {
         $this->clearConfigFiles();
+        $this->clearExtensions();
         // Flush
         $this->getMainContext()->visit('/?flush');
     }
@@ -949,6 +959,17 @@ YAML;
             $paths[0] = '/' . $paths[0];
         }
         return join('/', $paths);
+    }
+
+    protected function clearExtensions()
+    {
+        foreach ($this->addedExtensions as $targetClass => $extensions) {
+            foreach ($extensions as $extension) {
+                /** @var Extensible $targetClass */
+                $targetClass::remove_extension($extension);
+            }
+        }
+        $this->addedExtensions = [];
     }
 
     protected function clearConfigFiles()
