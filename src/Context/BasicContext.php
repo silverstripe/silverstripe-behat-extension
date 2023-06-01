@@ -1068,7 +1068,7 @@ JS;
     /**
      * Checks the order of two texts.
      * Assumptions: the two texts appear in their conjunct parent element once
-     * @Then /^I should see the text "(?P<textBefore>(?:[^"]|\\")*)" (before|after) the text "(?P<textAfter>(?:[^"]|\\")*)" in the "(?P<element>[^"]*)" element$/
+     * @Then /^I should see the text "(?P<textBefore>(?:[^"]|\\")*)" (?P<order>(before|after)) the text "(?P<textAfter>(?:[^"]|\\")*)" in the "(?P<element>[^"]*)" element$/
      * @param string $textBefore
      * @param string $order
      * @param string $textAfter
