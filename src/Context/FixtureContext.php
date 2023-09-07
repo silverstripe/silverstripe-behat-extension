@@ -896,6 +896,70 @@ YAML;
     }
 
     /**
+     * Selects the first image match in the HTML editor (tinymce)
+     *
+     * @When /^I select the image "([^"]+)" in the "([^"]+)" HTML field$/
+     * @param string $filename
+     * @param string $field
+     */
+    public function iSelectTheImageInHtmlField($filename, $field)
+    {
+        $this->selectInTheHtmlField("img[src*='$filename']", $field);
+    }
+
+    /**
+     * Selects the first match of $select in the given HTML editor (tinymce)
+     */
+    protected function selectInTheHtmlField(string $select, string $field)
+    {
+        $inputField = $this->getHtmlField($field);
+        $inputField->getParent()->find('css', 'iframe')->click();
+        $inputFieldId = $inputField->getAttribute('id');
+        $js = <<<JS
+        var editor = jQuery('#$inputFieldId').entwine('ss').getEditor(),
+            doc = editor.getInstance().getDoc(),
+            sel = doc.getSelection(),
+            rng = new Range(),
+            matched = false;
+
+        jQuery(doc).find("$select").each(function() {
+            if(!matched) {
+                rng.selectNode(this);
+                sel.removeAllRanges();
+                sel.addRange(rng);
+                matched = true;
+            }
+        });
+        JS;
+        $this->getMainContext()->getSession()->executeScript($js);
+    }
+
+    /**
+     * Locate an HTML editor field
+     *
+     * @param string $locator Raw html field identifier as passed from
+     * @return NodeElement
+     */
+    protected function getHtmlField($locator)
+    {
+        $locator = str_replace('\\"', '"', $locator ?? '');
+        $page = $this->getMainContext()->getSession()->getPage();
+        $element = $page->find('css', 'textarea.htmleditor[name=\'' . $locator . '\']');
+        if ($element) {
+            return $element;
+        }
+        $label = $page->findAll('xpath', sprintf('//label[contains(text(), \'%s\')]', $locator));
+        if (!empty($label)) {
+            Assert::assertCount(1, $label, "Found more than one element containing the phrase \"$locator\"");
+            $label = array_shift($label);
+            $fieldId = $label->getAttribute('for');
+            $element = $page->find('css', '#' . $fieldId);
+        }
+        Assert::assertNotNull($element, sprintf('HTML field "%s" not found', $locator));
+        return $element;
+    }
+
+    /**
      * Converts a natural language class description to an actual class name.
      * Respects {@link DataObject::$singular_name} variations.
      * Example: "redirector page" -> "RedirectorPage"
