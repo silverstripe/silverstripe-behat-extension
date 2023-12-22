@@ -11,6 +11,7 @@ use Behat\Behat\Hook\Scope\AfterScenarioScope;
 use Behat\Behat\Hook\Scope\AfterStepScope;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Behat\Hook\Scope\BeforeStepScope;
+use Behat\Mink\Driver\Selenium2Driver;
 use Behat\Mink\Element\NodeElement;
 use Behat\Mink\Exception\ElementNotFoundException;
 use Behat\Mink\Session;
@@ -562,7 +563,12 @@ JS;
      */
     public function iSeeTheDialogText($expected)
     {
-        $text = $this->getExpectedAlert()->getText();
+        $driver = $this->getSession()->getDriver();
+        if ($driver instanceof Selenium2Driver) {
+            $text = $driver->getWebDriverSession()->getAlert_text();
+        } else {
+            $text = $this->getExpectedAlert()->getText();
+        }
         Assert::assertStringContainsString($expected, $text);
     }
 
@@ -597,12 +603,17 @@ JS;
      */
     public function iConfirmTheDialog()
     {
-        $session = $this->getWebDriverSession();
-        $session->wait()->until(
-            WebDriverExpectedCondition::alertIsPresent(),
-            "Alert is expected"
-        );
-        $session->switchTo()->alert()->accept();
+        $driver = $this->getSession()->getDriver();
+        if ($driver instanceof Selenium2Driver) {
+            $driver->getWebDriverSession()->accept_alert();
+        } else {
+            $session = $this->getWebDriverSession();
+            $session->wait()->until(
+                WebDriverExpectedCondition::alertIsPresent(),
+                "Alert is expected"
+            );
+            $session->switchTo()->alert()->accept();
+        }
         $this->handleAjaxTimeout();
     }
 
@@ -611,7 +622,12 @@ JS;
      */
     public function iDismissTheDialog()
     {
-        $this->getExpectedAlert()->dismiss();
+        $driver = $this->getSession()->getDriver();
+        if ($driver instanceof Selenium2Driver) {
+            $driver->getWebDriverSession()->dismiss_alert();
+        } else {
+            $this->getExpectedAlert()->dismiss();
+        }
         $this->handleAjaxTimeout();
     }
 
