@@ -510,6 +510,9 @@ JS;
         $parentElement = $page->find('css', $selector);
         Assert::assertNotNull($parentElement, sprintf('"%s" element not found', $selector));
         $element = $parentElement->find('xpath', sprintf('//*[count(*)=0 and contains(.,"%s")]', $text));
+        if (is_null($element)) {
+            $element = $parentElement->find('xpath', sprintf('//*[text()[contains(.,"%s")]]', $text));
+        }
         Assert::assertNotNull($element, sprintf('"%s" not found', $text));
         $clickTypeFn = $clickTypeMap[$clickType];
         $element->$clickTypeFn();
