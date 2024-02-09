@@ -16,6 +16,7 @@ use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Behat\Testwork\ServiceContainer\ExtensionManager;
 use Behat\Testwork\ServiceContainer\Extension as ExtensionInterface;
 use RuntimeException;
+use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -41,7 +42,6 @@ class Extension implements ExtensionInterface
     * Extension configuration ID.
     */
     const SILVERSTRIPE_ID = 'silverstripe_extension';
-
 
     /**
     * {@inheritDoc}
@@ -78,8 +78,10 @@ class Extension implements ExtensionInterface
     public function load(ContainerBuilder $container, array $config)
     {
         // Load yml config
-        $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../config'));
-        $loader->load('silverstripe.yml');
+        if ($this->getShouldBootstrap($container)) {
+            $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../config'));
+            $loader->load('silverstripe.yml');
+        }
 
         // Add CLI substitutions
         $this->loadSuiteLocator($container);
@@ -105,8 +107,10 @@ class Extension implements ExtensionInterface
      */
     public function process(ContainerBuilder $container)
     {
-        $corePass = new Compiler\CoreInitializationPass();
-        $corePass->process($container);
+        if ($this->getShouldBootstrap($container)) {
+            $corePass = new Compiler\CoreInitializationPass();
+            $corePass->process($container);
+        }
     }
 
     public function configure(ArrayNodeDefinition $builder)
@@ -202,5 +206,21 @@ class Extension implements ExtensionInterface
         $definition = new Definition(RetryableCallHandler::class, [$errorReporting, $retrySeconds]);
         $definition->addTag(CallExtension::CALL_HANDLER_TAG, ['priority' => 50]);
         $container->setDefinition(CallExtension::CALL_HANDLER_TAG . '.runtime', $definition);
+    }
+
+    /**
+     * Check whether the extension should bootstrap or not.
+     * The extension should always bootstrap unless the `-h` or `--help` option is passed.
+     */
+    private function getShouldBootstrap(ContainerBuilder $container): bool
+    {
+        if (!$container->has('cli.input')) {
+            // If the input isn't there for some bizarre reason, just assume we should bootstrap.
+            return true;
+        }
+
+        /** @var ArgvInput $input */
+        $input = $container->get('cli.input');
+        return !$input->hasParameterOption(['--help', '-h']);
     }
 }
