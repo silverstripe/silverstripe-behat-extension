@@ -6,7 +6,6 @@ use Exception;
 use InvalidArgumentException;
 use Behat\Behat\Context\Context;
 use Behat\Behat\Context\Environment\InitializedContextEnvironment;
-use Behat\Behat\Definition\Call;
 use Behat\Behat\Hook\Scope\AfterScenarioScope;
 use Behat\Behat\Hook\Scope\AfterStepScope;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
@@ -19,6 +18,7 @@ use Behat\Testwork\Tester\Result\TestResult;
 use Facebook\WebDriver\Exception\WebDriverException;
 use Facebook\WebDriver\WebDriver;
 use Facebook\WebDriver\WebDriverAlert;
+use Facebook\WebDriver\WebDriverBy;
 use Facebook\WebDriver\WebDriverExpectedCondition;
 use Facebook\WebDriver\WebDriverKeys;
 use PHPUnit\Framework\Assert;
@@ -1582,5 +1582,72 @@ JS;
             $href = "/{$href}";
         }
         $this->getSession()->executeScript("document.location.href = '{$href}';");
+    }
+
+    /**
+     * @Given /^I focus on the "([^"]+)" element$/
+     */
+    public function iFocusOnTheElement(string $selector)
+    {
+        $page = $this->getSession()->getPage();
+        $element = $page->find('css', $selector);
+        Assert::assertNotNull($element, sprintf('Element %s not found', $selector));
+        $element->focus();
+    }
+
+    /**
+     * @Given /^I type "([^"]+)" in the field$/
+     *
+     * This method is used to type into the active element.
+     * It's used to type into fields that are input fields and currently active (has focus).
+     * Should be used together with the step "I focus on the "selector" element"
+     *
+     * Example:
+     * When I focus on the "selector" element
+     * And I type "text" in the field
+     */
+    public function iTypeInTheField(string $data)
+    {
+        $driver = $this->getSession()->getDriver()->getWebDriver();
+        $driver->switchTo()->activeElement();
+        $keyboard = $driver->getKeyboard();
+        $keyboard->sendKeys([$data]);
+    }
+
+    /**
+     * @Given /^the active element should be "([^"]+)"$/
+     *
+     * Example: And the active element should be "selector"
+     */
+    public function theActiveElementShouldBe(string $selector)
+    {
+        $driver = $this->getSession()->getDriver()->getWebDriver();
+        $element = $driver->findElement(WebDriverBy::cssSelector($selector));
+        Assert::assertNotNull($element, sprintf('Element %s not found', $selector));
+        Assert::assertTrue($element->equals($driver->switchTo()->activeElement()));
+    }
+
+    /**
+     * @Given /^I type "([^"]+)" in the active element "([^"]+)"$/
+     *
+     * This method is used to type into the active element.
+     *
+     * Example: And I type "text" in the active element "selector"
+     */
+    public function iTypeInTheActiveElement(string $data, string $selector)
+    {
+        $this->theActiveElementShouldBe($selector);
+        $this->iTypeInTheField($data);
+    }
+
+    /**
+     * Globally press the key i.e. not type into an input and confirm dialog
+     *
+     * @When /^I press the "([^"]+)" key and confirm the dialog$/
+     */
+    public function iPressTheKeyAndConfirmTheDialog(string $key)
+    {
+        $this->iPressTheKeyGlobally($key);
+        $this->iConfirmTheDialog();
     }
 }
