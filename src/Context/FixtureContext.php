@@ -31,6 +31,8 @@ use SilverStripe\Security\Member;
 use SilverStripe\Security\Permission;
 use SilverStripe\Versioned\Versioned;
 use SilverStripe\Core\Config\Config;
+use SilverStripe\Security\PermissionRole;
+use SilverStripe\Security\PermissionRoleCode;
 
 /**
  * Context used to create fixtures in the SilverStripe ORM.
@@ -608,6 +610,48 @@ class FixtureContext implements Context
                     || $permission == $details['name']
                 ) {
                     Permission::grant($group->ID, $code);
+                    $found = true;
+                }
+            }
+            if (!$found) {
+                throw new InvalidArgumentException(sprintf(
+                    'No permission found for "%s"',
+                    $permission
+                ));
+            }
+        }
+    }
+
+    /**
+     * Example: Given a "role" "Some role" with permissions "Access to 'Pages' section" and "Access to 'Files' section"
+     *
+     * @Given /^(?:an|a|the) "role" "([^"]+)" (?:with|has) permissions (.*)$/
+     * @param string $id
+     * @param string $permissionStr
+     */
+    public function stepCreateRoleWithPermissions($id, $permissionStr)
+    {
+        // Convert natural language permissions to codes
+        preg_match_all('/"([^"]+)"/', $permissionStr ?? '', $matches);
+        $permissions = $matches[1];
+        $codes = Permission::get_codes(false);
+
+        $role = $this->getFixtureFactory()->get(PermissionRole::class, $id);
+        if (!$role) {
+            $role = $this->getFixtureFactory()->createObject(PermissionRole::class, $id);
+        }
+
+        foreach ($permissions as $permission) {
+            $found = false;
+            foreach ($codes as $code => $details) {
+                if ($permission == $code
+                    || $permission == $details['name']
+                ) {
+                    $permissionRoleCode = PermissionRoleCode::create([
+                        'RoleID' => $role->ID,
+                        'Code' => $code,
+                    ]);
+                    $permissionRoleCode->write();
                     $found = true;
                 }
             }
