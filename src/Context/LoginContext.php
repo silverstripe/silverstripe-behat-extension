@@ -319,7 +319,6 @@ class LoginContext implements Context
         $member->FirstName = $identifier;
         $member->Surname = "User";
         $member->Email = $email;
-        $member->PasswordEncryption = "none";
         $member->changePassword($password);
         $member->write();
         $group->Members()->add($member);
