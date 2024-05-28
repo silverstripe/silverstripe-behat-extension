@@ -12,6 +12,7 @@ use SilverStripe\Security\Member;
 use SilverStripe\Security\Permission;
 use SilverStripe\Security\Security;
 use SilverStripe\MFA\Model\RegisteredMethod;
+use SilverStripe\Security\PasswordValidator;
 
 /**
  * LoginContext
@@ -315,13 +316,21 @@ class LoginContext implements Context
 
         // make sure any validation for password is skipped, since we're not testing complexity here
         $validator = Member::password_validator();
-        Member::set_password_validator(null);
+        $nullValidator = new PasswordValidator();
+        $nullValidator->setMinLength(0);
+        $nullValidator->setMinTestScore(0);
+        $nullValidator->setHistoricCount(0);
+        Member::set_password_validator($nullValidator);
+
+        // Write member record
         $member->FirstName = $identifier;
         $member->Surname = "User";
         $member->Email = $email;
         $member->changePassword($password);
         $member->write();
         $group->Members()->add($member);
+
+        // Set password validator back to what it was
         Member::set_password_validator($validator);
 
         return $member;
