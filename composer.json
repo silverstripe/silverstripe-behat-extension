@@ -21,7 +21,7 @@
         }
     ],
     "require": {
-        "php": "^8.1",
+        "php": "^8.3",
         "phpunit/phpunit": "^9.5",
         "squizlabs/php_codesniffer": "^3.7",
         "behat/behat": "^3.11.0",
