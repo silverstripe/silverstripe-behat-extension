@@ -691,7 +691,7 @@ class FixtureContext implements Context
     }
 
     /**
-     * Adds an extension and runs dev/build?flush
+     * Adds an extension and visits /dev/build?flush
      *
      * @param $extension
      * @param $class
@@ -704,7 +704,7 @@ class FixtureContext implements Context
     }
 
     /**
-     * Adds an extension, but doesn't run dev/build afterwards. Will still run ?flush
+     * Adds an extension, but doesn't visit /dev/build afterwards. Will still run ?flush
      *
      * @param $extension
      * @param $class

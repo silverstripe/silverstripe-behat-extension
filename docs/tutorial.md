@@ -22,7 +22,7 @@ and ensure it runs on your environment. Detailed installation instructions
 can be found in the [README](../README.md) of this module.
 Once you've got the SilverStripe project running, make sure you've
 started ChromeDriver. With all configuration in place, initialise Behat
-for 
+for
 
 	vendor/bin/behat --init @mysite
 
@@ -36,7 +36,7 @@ file since it reuses the one in the root folder.
 One major goal for "testing by example" through Behat is bringing
 the tests closer to the whole team, by making them part of the agile
 process and ideally have the customer write some tests in his own
-language (read more about this concept at 
+language (read more about this concept at
 [dannorth.net](http://dannorth.net/whats-in-a-story/)).
 
 In this spirit, we'll start "from the outside in", and
@@ -58,7 +58,7 @@ Feature: Report Abuse
 		Then I should see "Thanks for your submission"
 ```
 
-The "syntax" conventions used here are called the 
+The "syntax" conventions used here are called the
 ["Gherkin" language](https://github.com/cucumber/cucumber/wiki/Gherkin).
 It is fairly free-form, with only few rules about indentation and
 keywords such as `Feature:`, `Scenario:` or `Given`.
@@ -181,8 +181,8 @@ by placing it at the bottom of `themes/simple/templates/Layout/Page.ss`:
 ```
 
 You can try out this feature in your browser without Behat.
-Don't forget to rebuild the database (`dev/build`) and flush the
-template cache (`?flush=all`) first though. If its all looking good,
+Don't forget to rebuild the database and flush the
+template cache (`sake db:build --flush`) first though. If its all looking good,
 kick off another Behat run - it should pass now.
 
 	vendor/bin/behat @mysite
@@ -190,7 +190,7 @@ kick off another Behat run - it should pass now.
 ## Custom Step Definitions
 
 Can you see the flaw in our test? We haven't actually checked that a report record
-has been written, just that the user received a nice message after the form 
+has been written, just that the user received a nice message after the form
 submission. In order to check this, we'll need to write some custom step
 definitions. This is where the SilverStripe extension to Behat comes in
 handy, since you're already connected to the same test database in Behat
@@ -220,8 +220,8 @@ public function thereShouldBeAnAbuseReportForWithReason($arg1, $arg2)
 ```
 
 This code can be placed in a "context" class which was created during our
-module initialization. Its located in 
-`mysite/tests/behat/features/bootstrap/Context/FeatureContext.php`. 
+module initialization. Its located in
+`mysite/tests/behat/features/bootstrap/Context/FeatureContext.php`.
 The actual step implementation can vary quite a bit, and usually involves
 triggering a browser action like clicking a button, or inspecting the
 current browser state, e.g. check that a button is visible.
