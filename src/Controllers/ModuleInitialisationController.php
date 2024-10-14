@@ -15,7 +15,8 @@ use Behat\Testwork\Suite\SuiteRepository;
 use Exception;
 use SilverStripe\Core\Manifest\Module;
 use SilverStripe\Model\ArrayData;
-use SilverStripe\View\SSViewer;
+use SilverStripe\View\SSTemplateEngine;
+use SilverStripe\View\ViewLayerData;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -148,8 +149,8 @@ class ModuleInitialisationController implements Controller
         );
 
         // Create dummy feature
-        $featureContent = ArrayData::create([])
-            ->renderWith(__DIR__.'/../../templates/SkeletonFeature.ss');
+        $engine = SSTemplateEngine::create(__DIR__.'/../../templates/SkeletonFeature.ss');
+        $featureContent = $engine->render(ViewLayerData::create([]));
         file_put_contents($fullPath.'/placeholder.feature', $featureContent);
     }
 
@@ -184,7 +185,8 @@ class ModuleInitialisationController implements Controller
             'Namespace' => $fullNamespace,
             'ClassName' => $class,
         ]);
-        $classContent = $obj->renderWith(__DIR__.'/../../templates/FeatureContext.ss');
+        $engine = SSTemplateEngine::create(__DIR__.'/../../templates/FeatureContext.ss');
+        $classContent = $engine->render(ViewLayerData::create($obj));
         file_put_contents($classPath ?? '', $classContent);
 
         // Log
