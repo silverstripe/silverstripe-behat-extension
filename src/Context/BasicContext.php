@@ -496,12 +496,13 @@ JS;
     }
 
     /**
-     * @Given /^I (click|double click) "([^"]*)" in the "([^"]*)" element$/
+     * @Given /^I (click|double click) "([^"]*)"(| directly) in the "([^"]*)" element$/
      * @param string $clickType
      * @param string $text
+     * @param string $directly If used, the text must be directly in the element. Otherwise it can be in a child element.
      * @param string $selector
      */
-    public function iClickInTheElement($clickType, $text, $selector)
+    public function iClickInTheElement($clickType, $text, $directly, $selector)
     {
         $clickTypeMap = array(
             "double click" => "doubleclick",
@@ -510,7 +511,13 @@ JS;
         $page = $this->getSession()->getPage();
         $parentElement = $page->find('css', $selector);
         Assert::assertNotNull($parentElement, sprintf('"%s" element not found', $selector));
-        $element = $parentElement->find('xpath', sprintf('//*[count(*)=0 and contains(.,"%s")]', $text));
+        if ($directly) {
+            // Finds the specific text within the selector element (to validate it's there), and then grabs the element that holds the text
+            $element = $parentElement->find('xpath', sprintf('/text()[contains(.,"%s")]/..', $text));
+        } else {
+            // Finds a child of the selector element which contains the text
+            $element = $parentElement->find('xpath', sprintf('//*[count(*)=0 and contains(.,"%s")]', $text));
+        }
         Assert::assertNotNull($element, sprintf('"%s" not found', $text));
         $clickTypeFn = $clickTypeMap[$clickType];
         $element->$clickTypeFn();
