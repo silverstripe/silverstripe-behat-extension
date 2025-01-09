@@ -1332,11 +1332,6 @@ JS;
      */
     public function iShouldSeeTheElement($not, $cssSelector = '')
     {
-        // backwards compatibility for when function signature was just ($cssSelector)
-        if (!in_array($not, ['', ' not'])) {
-            $not = '';
-            $cssSelector = $not;
-        }
         $sel = str_replace('"', '\\"', $cssSelector ?? '');
         $js = <<<JS
 return document.querySelector("$sel");
