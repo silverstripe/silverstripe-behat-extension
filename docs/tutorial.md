@@ -168,7 +168,7 @@ class PageAbuseReport extends DataObject {
 ```
 
 Now we just need to render the form on every page,
-by placing it at the bottom of `themes/simple/templates/Layout/Page.ss`:
+by placing it at the bottom of `themes/my-theme/templates/Layout/Page.ss`:
 
 ```html
 <div class="content-container unit size3of4 lastUnit">
