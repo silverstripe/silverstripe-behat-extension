@@ -427,7 +427,7 @@ abstract class SilverStripeContext extends MinkContext implements SilverStripeAw
 
     /**
      * Fills in form field with specified id|name|label|value.
-     * Overwritten to select the first *visible* element, see https://github.com/Behat/Mink/issues/311
+     * Overwritten to select the first *visible* element, see https://github.com/minkphp/Mink/issues/311
      *
      * @param string $field
      * @param string $value
@@ -443,18 +443,7 @@ abstract class SilverStripeContext extends MinkContext implements SilverStripeAw
             /** @var NodeElement $node */
             foreach ($nodes as $node) {
                 if ($node->isVisible()) {
-                    // Work around for https://github.com/FluentLenium/FluentLenium/issues/129
-                    // Otherwise "Element must be user-editable in order to clear it"
-                    $type = $node->getAttribute('type');
-                    $id = $node->getAttribute('id');
-                    if ($type === 'date' && $id) {
-                        $jsValue = Convert::raw2js($value);
-                        $this->getSession()->getDriver()->executeScript(
-                            "document.getElementById(\"{$id}\").value = \"{$jsValue}\";"
-                        );
-                    } else {
-                        $node->setValue($value);
-                    }
+                    $node->setValue($value);
                     return;
                 }
             }
