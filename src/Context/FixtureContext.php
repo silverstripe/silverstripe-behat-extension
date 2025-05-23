@@ -495,6 +495,9 @@ class FixtureContext implements Context
             case 'deleted':
                 $obj->delete();
                 break;
+            case 'archived':
+                $obj->doArchive();
+                break;
             default:
                 throw new InvalidArgumentException(sprintf(
                     'Invalid state: "%s"',
