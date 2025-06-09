@@ -656,6 +656,46 @@ JS;
     }
 
     /**
+     * Select a specific option in a select element
+     *
+     * @Given /^I select "([^"]*)" in the "([^"]*)" dropdown$/
+     */
+    public function iSelectOptionInDropdown(string $optionLocator, string $dropdownLocator): void
+    {
+        $dropdown = $this->getElement($dropdownLocator);
+        $dropdown->selectOption($optionLocator);
+    }
+
+    /**
+     * Validate that a specific option is selected in a select element
+     *
+     * @Then /^the "([^"]*)" option is selected in the "([^"]*)" dropdown$/
+     */
+    public function optionIsSelectedInDropdown(string $optionLocator, string $dropdownLocator): void
+    {
+        $dropdown = $this->getElement($dropdownLocator);
+        $selectedOption = null;
+        foreach ($dropdown->findAll('css', 'option') as $option) {
+            if ($option->isSelected()) {
+                $selectedOption = $option;
+                break;
+            }
+        }
+        if ($selectedOption === null) {
+            throw new InvalidArgumentException("No option was selected in dropdown '$dropdownLocator'");
+        }
+        // Try value first - use == instead of === because the type may be e.g. int vs our expected string.
+        if ($selectedOption->getValue() == $optionLocator) {
+            return;
+        }
+        // Then try text - sometimes the value isn't the same as the text, and often behat tests are written based on what's visible
+        if ($selectedOption->getText() === $optionLocator) {
+            return;
+        }
+        throw new InvalidArgumentException("Option '$optionLocator' wasn't selected - selected option is '{$selectedOption->getValue()}'");
+    }
+
+    /**
      * Select an individual input from within a group, matched by the top-most label.
      *
      * @Given /^I select "([^"]*)" from "([^"]*)" input group$/
