@@ -32,7 +32,7 @@
         "symfony/dom-crawler": "^7.0",
         "silverstripe/testsession": "^4",
         "silverstripe/framework": "^6",
-        "silverstripe/supported-modules": "^1.1",
+        "silverstripe/supported-modules": "^2",
         "symfony/finder": "^7.0"
     },
     "autoload": {
