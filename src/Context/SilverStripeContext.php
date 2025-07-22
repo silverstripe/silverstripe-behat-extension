@@ -19,6 +19,7 @@ use SilverStripe\Core\Resettable;
 use SilverStripe\MinkFacebookWebDriver\FacebookWebDriver;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\TestSession\TestSessionEnvironment;
+use SilverStripe\Versioned\Versioned;
 use Symfony\Component\CssSelector\Exception\SyntaxErrorException;
 
 /**
@@ -283,6 +284,9 @@ abstract class SilverStripeContext extends MinkContext implements SilverStripeAw
         DataObject::reset();
         if (class_exists(SiteTree::class)) {
             SiteTree::reset();
+        }
+        if (class_exists(Versioned::class)) {
+            Versioned::set_stage(Versioned::DRAFT);
         }
     }
 
