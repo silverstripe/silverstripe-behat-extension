@@ -29,6 +29,10 @@ use SilverStripe\Assets\Filesystem;
 use SilverStripe\BehatExtension\Utility\StepHelper;
 use SilverStripe\BehatExtension\Utility\DebugTools;
 use SilverStripe\MinkFacebookWebDriver\FacebookWebDriver;
+use Facebook\WebDriver\Remote\RemoteWebElement;
+use SilverStripe\Dev\Deprecation;
+
+use function PHPUnit\Framework\assertSame;
 
 /**
  * BasicContext
@@ -1711,9 +1715,12 @@ JS;
      * @Given /^the active element should be "([^"]+)"$/
      *
      * Example: And the active element should be "selector"
+     *
+     * @depreacted 6.1.0 Use theFieldShouldHaveFocus() instead which is more reliable
      */
     public function theActiveElementShouldBe(string $selector)
     {
+        Deprecation::notice('6.1.0', 'Use theFieldShouldHaveFocus() instead which is more reliable');
         $driver = $this->getSession()->getDriver()->getWebDriver();
         $element = $driver->findElement(WebDriverBy::cssSelector($selector));
         Assert::assertNotNull($element, sprintf('Element %s not found', $selector));
