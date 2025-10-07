@@ -1620,6 +1620,31 @@ JS;
     }
 
     /**
+     * Checks if an element has focus.
+     *
+     * Example: Then the ".some-css-selector" element should have focus
+     * @Then /^the "([^"]*)" element should have focus$/
+     */
+    public function theFieldShouldHaveFocus(string $selector)
+    {
+        $page = $this->getSession()->getPage();
+        $element = $page->find('css', $selector);
+        Assert::assertNotNull($element, sprintf('Element %s not found', $selector));
+        $sel = str_replace('"', '\\"', $selector);
+        $script = <<<JS
+            return (function() {
+                var el = document.querySelector("$sel");
+                if (!el) {
+                    return false;
+                }
+                return el == document.activeElement;
+            })();
+        JS;
+        $res = $this->getSession()->evaluateScript($script);
+        Assert::assertTrue($res);
+    }
+
+    /**
      * @Given /^I type "([^"]+)" in the field$/
      *
      * This method is used to type into the active element.
