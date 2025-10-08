@@ -17,12 +17,17 @@ use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 class MinkExtensionBaseUrlPass implements CompilerPassInterface
 {
     /**
-     * Passes MinkExtension's base_url parameter
+     * Passes MinkExtension's base_url parameter from environment variables if missing in behat.yml
      *
      * @param ContainerBuilder $container
      */
     public function process(ContainerBuilder $container)
     {
+        // If base_url is set in behat.yml, we can just use that.
+        $baseUrl = $container->getParameter('mink.base_url');
+        if ($baseUrl) {
+            return;
+        }
         // Set url from environment
         $baseURL = Environment::getEnv('SS_BASE_URL');
         if (!$baseURL) {
