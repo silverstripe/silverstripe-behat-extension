@@ -42,7 +42,7 @@ trait DebugTools
      * the browser headless
      * Remove this step from in a feature file once the test is working correct
      *
-     * @Given /^I take a screenshot after every step$/
+     * @Given /^I take a screenshot after (every|each) step$/
      */
     public function iTakeAScreenshotAfterEveryStep()
     {
@@ -53,7 +53,7 @@ trait DebugTools
      * Utility function for debugging failing behat tests
      * Remove this step from in a feature file once the test is working correct
      *
-     * @Given /^I dump the rendered HTML after every step$/
+     * @Given /^I dump the rendered HTML after (every|each) step$/
      */
     public function iDumpTheRenderedHtmlAfterEveryStep()
     {
