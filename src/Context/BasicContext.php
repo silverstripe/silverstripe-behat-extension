@@ -303,6 +303,29 @@ JS;
     }
 
     /**
+     * Accept any alert that is still open when the scenario ends
+     *
+     * @AfterScenario
+     * @param AfterScenarioScope $event
+     */
+    public function acceptOpenAlertAfterScenario(AfterScenarioScope $event): void
+    {
+        $session = $this->getSession();
+        if (!$session->isStarted() || !$session->getDriver() instanceof FacebookWebDriver) {
+            return;
+        }
+        // Mink resets the session before the next scenario in an event listener, so an open alert there aborts the run
+        try {
+            $alert = $this->getWebDriverSession()->switchTo()->alert();
+            $text = $alert->getText();
+            $alert->accept();
+            $this->logMessage("Accepted an alert that was still open after the scenario: $text");
+        } catch (WebDriverException $e) {
+            // no-op, no alert is open
+        }
+    }
+
+    /**
      * Close modal dialog if test scenario fails on CMS page
      *
      * @AfterScenario
